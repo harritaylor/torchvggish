@@ -2,6 +2,9 @@
 
 Citation: https://ai.google/research/pubs/pub45611
 
+Resources: http://users.cs.cf.ac.uk/TaylorH23/vggish/vggish_pca_params.npz
+As well as the .pt weights of VGGish
+
 ## Todo
 - [x] https://storage.googleapis.com/audioset/vggish_model.ckpt
 - [x] https://storage.googleapis.com/audioset/vggish_pca_params.npz
