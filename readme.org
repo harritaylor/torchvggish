@@ -1,0 +1,44 @@
+* PyTorch-VGGish
+Citation: https://ai.google/research/pubs/pub45611
+
+To get started clone this repo, make sure you're running a python 3
+environment with pytorch installed, and run `python vggish.py`. This
+will download the weights for the convolutional features part of
+VGGish and report the model architecture. If you are on MacOS / Linux,
+the weights will be installed to `~/.torch/models`, so you do not have
+to download them again.
+
+Please note: this is a work in progress. Currently the PyTorch-VGGish
+model does not produce 128-d embeddings like the Tensorflow
+model. This is a part of the project I am actively working on.
+
+** Tasklist
+*** DONE Download tensorflow model weights from [[https://storage.googleapis.com/audioset/vggish_model.ckpt][here]].
+*** DONE Reconstruct TF-slim model in PyTorch.
+Mostly done. Cannot get the conversion from Conv layers to fully
+connected layers to play nice.
+**** TODO figure out why the flattening layer doesn't play nice in PyTorch
+*** TODO Convert VGGish utility functions to PyTorch (such as log-mel-STFT etc)
+*** TODO Write PyTorch Dataset wrapper for AudioSet embeddings + raw audio recordings
+
+** VGGish Architecture
+*Note: only up to layer 10 is currently working in PyTorch. Use
+[[https://github.com/tensorflow/models/tree/master/research/audioset][TensorFlow AudioSet]] instead to get up and running with embeddings
+straight away!*
+
+| Layer        | Filters | Kernel | Stride | Padding |
+|--------------+---------+--------+--------+---------|
+| 1. Conv2d    | 64      | 3      | 1      | SAME    |
+| 2. MaxPool2d | -       | 2      | 2      | SAME    |
+| 3. Conv2d    | 128     | 3      | 1      | SAME    |
+| 4. MaxPool2d | -       | 2      | 2      | SAME    |
+| 5. Conv2d    | 256     | 3      | 1      | SAME    |
+| 6. Conv2d    | 256     | 3      | 1      | SAME    |
+| 7. MaxPool2d | -       | 2      | 2      | SAME    |
+| 8. Conv2d    | 512     | 3      | 1      | SAME    |
+| 9. Conv2d    | 512     | 3      | 1      | SAME    |
+| 10. MaxPool2d| -       | 2      | 2      | SAME    |
+| 11. Flatten  | -       | -      | -      | -       |
+| 12. Linear   | 4096    | -      | -      | -       |
+| 13. Linear   | 4096    | -      | -      | -       |
+| 14. Linear   | E_SIZE  | -      | -      | -       |

@@ -34,45 +34,32 @@ internally.
 For comparison, here is TF-Slim's VGG definition:
 https://github.com/tensorflow/models/blob/master/research/slim/nets/vgg.py
 """
-
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
-
-VGGISH_WEIGHTS_URL = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish11-8c8f01aa.pth"
+WEIGHT_URL = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish_features-7a250f89.pt"
 
 
 class VGG(nn.Module):
     def __init__(self):
         super(VGG, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1)
-        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2, padding=1)
-        self.conv5 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1)
-        self.conv6 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1)
-        self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2, padding=1)
-        self.fc1 = nn.Linear(in_features=12288, out_features=4096)
-        self.fc2 = nn.Linear(in_features=4096, out_features=4096)
-        self.fc3 = nn.Linear(in_features=4096, out_features=128)
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 64, 3, 1, 1),
+            nn.MaxPool2d(2, 2, 1),
+            nn.Conv2d(64, 128, 3, 1, 1),
+            nn.MaxPool2d(2, 2, 1),
+            nn.Conv2d(128, 256, 3, 1, 1),
+            nn.Conv2d(256, 256, 3, 1, 1),
+            nn.MaxPool2d(2, 2, 1),
+            nn.Conv2d(256, 512, 3, 1, 1),
+            nn.Conv2d(512, 512, 3, 1, 1),
+            nn.MaxPool2d(2, 2, 1)
+        )
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.pool1(x)
-        x = self.conv2(x)
-        x = self.pool2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.pool3(x)
-        x = self.conv5(x)
-        x = self.conv6(x)
-        x = self.pool4(x)
-        x = self.fc1(x)
-        x = self.fc2(x)
-        x = self.fc3(x)
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        return x
 
 
 def vggish(pretrained=True):
@@ -82,5 +69,11 @@ def vggish(pretrained=True):
     """
     model = VGG()
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(VGGISH_WEIGHTS_URL))
+        model.load_state_dict(model_zoo.load_url(WEIGHT_URL))
     return model
+
+# Test to make sure everything has loaded
+if __name__ == '__main__':
+    model = vggish().features
+    print("Everything loaded successfully. VGGish model architecture:")
+    print(model)
