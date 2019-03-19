@@ -12,19 +12,8 @@ Please note: this is a work in progress. Currently the PyTorch-VGGish
 model does not produce 128-d embeddings like the Tensorflow
 model. This is a part of the project I am actively working on.
 
-** Tasklist
-*** DONE Download tensorflow model weights from [[https://storage.googleapis.com/audioset/vggish_model.ckpt][here]].
-*** DONE Reconstruct TF-slim model in PyTorch.
-Mostly done. Cannot get the conversion from Conv layers to fully
-connected layers to play nice.
-**** TODO figure out why the flattening layer doesn't play nice in PyTorch
-*** TODO Convert VGGish utility functions to PyTorch (such as log-mel-STFT etc)
-*** TODO Write PyTorch Dataset wrapper for AudioSet embeddings + raw audio recordings
-
 ** VGGish Architecture
-*Note: only up to layer 10 is currently working in PyTorch. Use
-[[https://github.com/tensorflow/models/tree/master/research/audioset][TensorFlow AudioSet]] instead to get up and running with embeddings
-straight away!*
+*Note: only up to layer 10 is currently working in PyTorch. Use [[https://github.com/tensorflow/models/tree/master/research/audioset][TensorFlow AudioSet]] instead to get up and running with embeddings straight away*
 
 | Layer        | Filters | Kernel | Stride | Padding |
 |--------------+---------+--------+--------+---------|
