@@ -1,10 +1,3 @@
-"""
-Created by hlt (Harri Taylor, taylorh23@cardiff.ac.uk), 6/2/2019
-PyTorch implementation of the VGGish model taken from the tensorflow models
-repository. Gratitude is extended to the AudioSet project authors for development
-of the VGGish model.
-(https://github.com/tensorflow/models/blob/master/research/audioset/vggish_slim.py)
-"""
 
 # Copyright 2017 The TensorFlow Authors All Rights Reserved.
 #
@@ -20,8 +13,10 @@ of the VGGish model.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+#
+# Modifications copyright (c) 2019 Harrison Taylor taylorh23@cardiff.ac.uk
 
-"""Defines the 'VGGish' model used to generate AudioSet embedding features.
+""""Defines the 'VGGish' model used to generate AudioSet embedding features.
 The public AudioSet release (https://research.google.com/audioset/download.html)
 includes 128-D features extracted from the embedding layer of a VGG-like model
 that was trained on a large Google-internal YouTube dataset. Here we provide
@@ -30,9 +25,13 @@ internal to Google. We call it 'VGGish'.
 Note that we only define the model up to the embedding layer, which is the
 penultimate layer before the final classifier layer. We also provide various
 hyperparameter values (in vggish_params.py) that were used to train this model
-internally.
-For comparison, here is TF-Slim's VGG definition:
+internally." - The TensorFlow Authors
+
+This is a PyTorch implementation of the same model, using weights
+extracted from the TF-Slim implementation of VGGish. For comparison,
+here is TF-Slim's VGG definition:
 https://github.com/tensorflow/models/blob/master/research/slim/nets/vgg.py
+
 """
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
