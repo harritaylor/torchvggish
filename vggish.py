@@ -31,18 +31,17 @@ class VGGish(nn.Module):
         return x
 
 
-def vggish(pretrained=True):
+def pretrained():
     """
     VGGish is a PyTorch implementation of Tensorflow's VGGish architecture used to create embeddings
     for Audioset. It produces a 128-d embedding of a 96ms slice of audio.
     """
     model = VGGish()
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(WEIGHT_URL))
+    model.load_state_dict(model_zoo.load_url(WEIGHT_URL))
     return model
 
 # Test to make sure everything has loaded
 if __name__ == '__main__':
-    model = vggish()
+    model = pretrained()
     print("Everything loaded successfully. VGGish model architecture:")
     print(model)
