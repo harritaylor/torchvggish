@@ -3,7 +3,7 @@ import torch.utils.model_zoo as model_zoo
 
 WEIGHT_URL = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-e3b372a4.pth"
 
-class VGGish(nn.Module):    
+class VGGish(nn.Module):
     def __init__(self):
         super(VGGish, self).__init__()
         self.features = nn.Sequential(
@@ -23,10 +23,10 @@ class VGGish(nn.Module):
             nn.Linear(4096, 4096),
             nn.Linear(4096, 128)
         )
-            
+
     def forward(self, x):
         x = self.features(x)
-        x = x.view(-1)
+        x = x.view(x.size(0),-1)
         x = self.embeddings(x)
         return x
 
