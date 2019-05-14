@@ -1,26 +1,34 @@
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
-WEIGHT_URL = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-e3b372a4.pth"
+WEIGHT_URL = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-dc9c9217.pth"
 
 class VGGish(nn.Module):
     def __init__(self):
         super(VGGish, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(1, 64, 3, 1, 1),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
             nn.Conv2d(64, 128, 3, 1, 1),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
             nn.Conv2d(128, 256, 3, 1, 1),
+            nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, 3, 1, 1),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
             nn.Conv2d(256, 512, 3, 1, 1),
+            nn.ReLU(inplace=True),
             nn.Conv2d(512, 512, 3, 1, 1),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2)
         )
         self.embeddings = nn.Sequential(
             nn.Linear(512*24, 4096),
+            nn.ReLU(inplace=True),
             nn.Linear(4096, 4096),
+            nn.ReLU(inplace=True),
             nn.Linear(4096, 128)
         )
 
@@ -37,7 +45,7 @@ def pretrained():
     for Audioset. It produces a 128-d embedding of a 96ms slice of audio.
     """
     model = VGGish()
-    model.load_state_dict(model_zoo.load_url(WEIGHT_URL))
+    model.load_state_dict(model_zoo.load_url(WEIGHT_URL), strict=False)
     return model
 
 # Test to make sure everything has loaded
