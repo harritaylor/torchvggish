@@ -1,4 +1,6 @@
-* PyTorch-VGGish
+* VGGish
+This is a PyTorch compatible adaptation of VGGish, a feature embedding frontend for audio classification models.
+
 Citation: https://ai.google/research/pubs/pub45611
 
 To get started simply run the file `vggish.py`.
