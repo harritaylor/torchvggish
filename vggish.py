@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
-WEIGHT_URL = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-dc9c9217.pth"
+WEIGHT_URL = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-cbfe8f1c.pth"
 
 class VGGish(nn.Module):
     def __init__(self):
@@ -29,7 +29,8 @@ class VGGish(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
-            nn.Linear(4096, 128)
+            nn.Linear(4096, 128),
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x):
