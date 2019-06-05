@@ -1,5 +1,6 @@
 * VGGish
 This is a PyTorch compatible adaptation of VGGish, a feature embedding frontend for audio classification models.
+(NOTE: This does not actually produce accurate embeddings at the moment. Please check https://github.com/harritaylor/torchvggish/issues/5#issuecomment-498990330 for details. Sorry.)
 
 Citation: https://ai.google/research/pubs/pub45611
 
