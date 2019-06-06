@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import vggish_params
 from torch import hub
-import requests
 import os
 import sys
 import warnings
@@ -12,7 +11,7 @@ from urllib.parse import urlparse
 
 
 VGGISH_WEIGHTS = (
-    "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-cbfe8f1c.pth"
+    "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-10086976.pth"
 )
 PCA_PARAMS = (
     "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish_pca_params-4d878af3.npz"
@@ -51,46 +50,46 @@ VGGish
 Input: 96x64 1-channel spectrogram
 Output:  128 Embedding 
 """
-
-
-class VGGish(nn.Module):
+class VGGish(nn.Module):  
     def __init__(self):
         super(VGGish, self).__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(1, 64, 3, 1, 1),
+            nn.Conv2d(  1,  64, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(64, 128, 3, 1, 1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d( 64, 128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(128, 256, 3, 1, 1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 3, 1, 1),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(256, 512, 3, 1, 1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, 3, 1, 1),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.embeddings = nn.Sequential(
-            nn.Linear(512 * 24, 4096),
+            nn.Linear(512*4*6, 4096),
             nn.ReLU(inplace=True),
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
-            nn.Linear(4096, 128),
-            nn.ReLU(inplace=True),
-        )
-
+            nn.Linear(4096, VGGishParams.EMBEDDING_SIZE),
+            nn.ReLU(inplace=True))
+                    
     def forward(self, x):
         x = self.features(x)
-        x = x.view(x.size(0), -1)
+        x = torch.transpose(x, 1, 3)
+        x = torch.transpose(x, 1, 2)
+        x = x.contiguous()
+        x = x.view(x.size(0),-1)
         x = self.embeddings(x)
         return x
 
 
-class Postprocessor(object):
+class TorchPostprocessor(object):
     """Post-processes VGGish embeddings. Returns a non-quantized version to preserve
     the gradient in pytorch.
 
@@ -118,7 +117,7 @@ class Postprocessor(object):
         )
 
     def postprocess(self, embeddings_batch):
-        """Applies postprocessing to a batch of embeddings.
+        """Applies tensor postprocessing to a batch of embeddings.
 
         Args:
           embeddings_batch: An tensor of shape [batch_size, embedding_size]
@@ -196,19 +195,3 @@ def load_params_from_url(url, param_dir=None, progress=True):
         hash_prefix = hub.HASH_REGEX.search(filename).group(1)
         hub._download_url_to_file(url, cached_file, hash_prefix, progress=progress)
     return cached_file
-
-
-# Test to make sure everything has loaded
-if __name__ == "__main__":
-    model = vggish()
-    print("Everything loaded successfully. VGGish model architecture:")
-    print(model)
-
-    # test dummy PCA
-    print("testing dummy PCA")
-    embeddings_batch = np.random.random_sample((128,))[None, :]
-    test_batch = torch.autograd.Variable(
-        torch.from_numpy(embeddings_batch), requires_grad=True
-    )
-    postprocessor = Postprocessor(load_params_from_url(PCA_PARAMS))
-    print(postprocessor.postprocess(test_batch))
