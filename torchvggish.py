@@ -48,9 +48,9 @@ class VGGishParams:
 """
 VGGish
 Input: 96x64 1-channel spectrogram
-Output:  128 Embedding 
+Output:  128 Embedding
 """
-class VGGish(nn.Module):  
+class VGGish(nn.Module):
     def __init__(self):
         super(VGGish, self).__init__()
         self.features = nn.Sequential(
@@ -78,7 +78,7 @@ class VGGish(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(4096, VGGishParams.EMBEDDING_SIZE),
             nn.ReLU(inplace=True))
-                    
+
     def forward(self, x):
         x = self.features(x)
         x = torch.transpose(x, 1, 3)
@@ -89,9 +89,9 @@ class VGGish(nn.Module):
         return x
 
 
-class TorchPostprocessor(object):
-    """Post-processes VGGish embeddings. Returns a non-quantized version to preserve
-    the gradient in pytorch.
+class Postprocessor(object):
+    """Post-processes VGGish embeddings. Returns a torch.Tensor instead of a
+    numpy array in order to preserve the gradient.
 
     The initial release of AudioSet included 128-D VGGish embeddings for each
     segment of AudioSet. These released embeddings were produced by applying
@@ -102,19 +102,22 @@ class TorchPostprocessor(object):
     the same PCA (with whitening) and quantization transformations.
     """
 
-    def __init__(self, pca_params_npz_path):
+    def __init__(self, pca_params_npz_path=None):
         """Constructs a postprocessor.
 
         Args:
           pca_params_npz_path: Path to a NumPy-format .npz file that
             contains the PCA parameters used in postprocessing.
         """
-        params = np.load(pca_params_npz_path)
-        self._pca_matrix = torch.as_tensor(params[vggish_params.PCA_EIGEN_VECTORS_NAME])
+        if pca_params_npz_path is not None:
+            params = np.load(pca_params_npz_path)
+        else:
+            params = load_params_from_url(PCA_PARAMS)
+        self._pca_matrix = torch.as_tensor(params[vggish_params.PCA_EIGEN_VECTORS_NAME]).float()
         # Load means into a column vector for easier broadcasting later.
         self._pca_means = torch.as_tensor(
             params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1)
-        )
+        ).float()
 
     def postprocess(self, embeddings_batch):
         """Applies tensor postprocessing to a batch of embeddings.
@@ -124,8 +127,8 @@ class TorchPostprocessor(object):
             containing output from the embedding layer of VGGish.
 
         Returns:
-          A tensor of the same shape as the input, containing the PCA-transformed
-          and quantized version of the input.
+          A tensor of the same shape as the input, containing the PCA-transformed,
+          quantized, and clipped version of the input.
         """
 
         # Apply PCA.
@@ -148,8 +151,10 @@ class TorchPostprocessor(object):
         quantized_embeddings = (clipped_embeddings - vggish_params.QUANTIZE_MIN_VAL) * (
             255.0 / (vggish_params.QUANTIZE_MAX_VAL - vggish_params.QUANTIZE_MIN_VAL)
         )
+        # Floor by using torch.round
+        clipped_embeddings = torch.round(quantized_embeddings)
 
-        return quantized_embeddings
+        return clipped_embeddings
 
 
 def vggish():
@@ -194,4 +199,4 @@ def load_params_from_url(url, param_dir=None, progress=True):
         sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
         hash_prefix = hub.HASH_REGEX.search(filename).group(1)
         hub._download_url_to_file(url, cached_file, hash_prefix, progress=progress)
-    return cached_file
+    return np.load(cached_file)
