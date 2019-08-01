@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import vggish_params
 from torch import hub
 import os
 import sys
@@ -10,19 +9,11 @@ import errno
 from urllib.parse import urlparse
 
 
-VGGISH_WEIGHTS = (
-    "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-10086976.pth"
-)
-PCA_PARAMS = (
-    "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish_pca_params-4d878af3.npz"
-)
+VGGISH_WEIGHTS = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-10086976.pth"
+PCA_PARAMS = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish_pca_params-4d878af3.npz"
 
 
 class VGGishParams:
-    """
-    These should not be changed. They have been added into this file for convenience.
-    """
-
     NUM_FRAMES = (96,)  # Frames in input mel-spectrogram patch.
     NUM_BANDS = 64  # Frequency bands in input mel-spectrogram patch.
     EMBEDDING_SIZE = 128  # Size of embedding layer.
@@ -45,19 +36,18 @@ class VGGishParams:
     QUANTIZE_MAX_VAL = +2.0
 
 
-"""
-VGGish
-Input: 96x64 1-channel spectrogram
-Output:  128 Embedding
-"""
 class VGGish(nn.Module):
+    """
+    Input:      96x64 amplitude mel-spectrogram
+    Output:     128 vector encoding of input
+    """
     def __init__(self):
         super(VGGish, self).__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(  1,  64, kernel_size=3, padding=1),
+            nn.Conv2d(1,  64, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d( 64, 128, kernel_size=3, padding=1),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
@@ -172,7 +162,6 @@ def load_params_from_url(url, param_dir=None, progress=True):
     Loads the PCA params using the syntax from https://github.com/pytorch/pytorch/blob/master/torch/hub.py,
     except doesn't serialize using torch.load, simply provides files as numpy format.
     """
-    # Issue warning to move data if old env is set
     if os.getenv("TORCH_MODEL_ZOO"):
         warnings.warn(
             "TORCH_MODEL_ZOO is deprecated, please use env TORCH_HOME instead"
@@ -186,7 +175,6 @@ def load_params_from_url(url, param_dir=None, progress=True):
         os.makedirs(param_dir)
     except OSError as e:
         if e.errno == errno.EEXIST:
-            # Directory already exists, ignore.
             pass
         else:
             # Unexpected OSError, re-raise.
@@ -200,3 +188,8 @@ def load_params_from_url(url, param_dir=None, progress=True):
         hash_prefix = hub.HASH_REGEX.search(filename).group(1)
         hub._download_url_to_file(url, cached_file, hash_prefix, progress=progress)
     return np.load(cached_file)
+
+
+if __name__ == "__main__":
+    model = vggish()
+    print(model)
