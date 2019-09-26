@@ -8,74 +8,39 @@ import warnings
 import errno
 from urllib.parse import urlparse
 
+# TODO: Upload weights and PCA to project release
 
 VGGISH_WEIGHTS = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-10086976.pth"
 PCA_PARAMS = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish_pca_params-4d878af3.npz"
 
 
-class VGGishParams:
-    NUM_FRAMES = (96,)  # Frames in input mel-spectrogram patch.
-    NUM_BANDS = 64  # Frequency bands in input mel-spectrogram patch.
-    EMBEDDING_SIZE = 128  # Size of embedding layer.
-
-    # Hyperparameters used in feature and example generation.
-    SAMPLE_RATE = 16000
-    STFT_WINDOW_LENGTH_SECONDS = 0.025
-    STFT_HOP_LENGTH_SECONDS = 0.010
-    NUM_MEL_BINS = NUM_BANDS
-    MEL_MIN_HZ = 125
-    MEL_MAX_HZ = 7500
-    LOG_OFFSET = 0.01  # Offset used for stabilized log of input mel-spectrogram.
-    EXAMPLE_WINDOW_SECONDS = 0.96  # Each example contains 96 10ms frames
-    EXAMPLE_HOP_SECONDS = 0.96  # with zero overlap.
-
-    # Parameters used for embedding postprocessing.
-    PCA_EIGEN_VECTORS_NAME = "pca_eigen_vectors"
-    PCA_MEANS_NAME = "pca_means"
-    QUANTIZE_MIN_VAL = -2.0
-    QUANTIZE_MAX_VAL = +2.0
-
-
-class VGGish(nn.Module):
-    """
-    Input:      96x64 amplitude mel-spectrogram
-    Output:     128 vector encoding of input
-    """
-    def __init__(self):
-        super(VGGish, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(1,  64, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
+class VGG(nn.Module):
+    def __init__(self, features, pca=True):
+        super(VGG, self).__init__()
+        self.pca = pca
+        self.features = features
         self.embeddings = nn.Sequential(
-            nn.Linear(512*4*6, 4096),
-            nn.ReLU(inplace=True),
+            nn.Linear(512 * 4 * 6, 4096),
+            nn.ReLU(True),
             nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Linear(4096, VGGishParams.EMBEDDING_SIZE),
-            nn.ReLU(inplace=True))
+            nn.ReLU(True),
+            nn.Linear(4096, 128),
+            nn.ReLU(True)
+        )
+        self.pproc = Postprocessor()
 
     def forward(self, x):
         x = self.features(x)
+
+        # Transpose the output from features to remain compatible
+        # with the original VGGish model
         x = torch.transpose(x, 1, 3)
         x = torch.transpose(x, 1, 2)
         x = x.contiguous()
-        x = x.view(x.size(0),-1)
+        x = x.view(x.size(0), -1)
+
         x = self.embeddings(x)
+        x = self.pproc.postprocess(x) if self.pca else x
         return x
 
 
@@ -103,11 +68,8 @@ class Postprocessor(object):
             params = np.load(pca_params_npz_path)
         else:
             params = load_params_from_url(PCA_PARAMS)
-        self._pca_matrix = torch.as_tensor(params[vggish_params.PCA_EIGEN_VECTORS_NAME]).float()
-        # Load means into a column vector for easier broadcasting later.
-        self._pca_means = torch.as_tensor(
-            params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1)
-        ).float()
+        self._pca_matrix = torch.as_tensor(params['pca_eigen_vectors']).float()
+        self._pca_means = torch.as_tensor(params['pca_means'].reshape(-1, 1)).float()
 
     def postprocess(self, embeddings_batch):
         """Applies tensor postprocessing to a batch of embeddings.
@@ -120,31 +82,29 @@ class Postprocessor(object):
           A tensor of the same shape as the input, containing the PCA-transformed,
           quantized, and clipped version of the input.
         """
+        pca_applied = torch.mm(self._pca_matrix,
+                               (embeddings_batch.t() - self._pca_means)).t()
+        clipped_embeddings = torch.clamp(pca_applied, -2.0, +2.0)
+        quantized_embeddings = torch.round((clipped_embeddings - -2.0)
+                                           * (255.0 / (+2.0 - -2.0)))
+        return quantized_embeddings
 
-        # Apply PCA.
-        # - Embeddings come in as [batch_size, embedding_size].
-        # - Transpose to [embedding_size, batch_size].
-        # - Subtract pca_means column vector from each column.
-        # - Premultiply by PCA matrix of shape [output_dims, input_dims]
-        #   where both are are equal to embedding_size in our case.
-        # - Transpose result back to [batch_size, embedding_size].
-        pca_applied = torch.mm(
-            self._pca_matrix, (embeddings_batch.t() - self._pca_means)
-        ).t()
 
-        # Quantize by:
-        # - clipping to [min, max] range
-        clipped_embeddings = torch.clamp(
-            pca_applied, vggish_params.QUANTIZE_MIN_VAL, vggish_params.QUANTIZE_MAX_VAL
-        )
-        # - convert to 8-bit in range [0.0, 255.0]
-        quantized_embeddings = (clipped_embeddings - vggish_params.QUANTIZE_MIN_VAL) * (
-            255.0 / (vggish_params.QUANTIZE_MAX_VAL - vggish_params.QUANTIZE_MIN_VAL)
-        )
-        # Floor by using torch.round
-        clipped_embeddings = torch.round(quantized_embeddings)
+def make_layers():
+    layers = []
+    in_channels = 1
+    for v in [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M']:
+        if v == 'M':
+            layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+        else:
+            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+            layers += [conv2d, nn.ReLU(inplace=True)]
+            in_channels = v
+    return nn.Sequential(*layers)
 
-        return clipped_embeddings
+
+def _vgg():
+    return VGG(make_layers())
 
 
 def vggish():
@@ -152,14 +112,16 @@ def vggish():
     VGGish is a PyTorch implementation of Tensorflow's VGGish architecture used to create embeddings
     for Audioset. It produces a 128-d embedding of a 96ms slice of audio. Always comes pretrained.
     """
-    model = VGGish()
-    model.load_state_dict(hub.load_state_dict_from_url(VGGISH_WEIGHTS), strict=True)
+    model = _vgg()
+    state_dict = hub.load_state_dict_from_url(VGGISH_WEIGHTS, progress=True)
+    model.load_state_dict(state_dict)
     return model
 
 
 def load_params_from_url(url, param_dir=None, progress=True):
     r"""
-    Loads the PCA params using the syntax from https://github.com/pytorch/pytorch/blob/master/torch/hub.py,
+    Loads the PCA params using the syntax from
+    https://github.com/pytorch/pytorch/blob/master/torch/hub.py,
     except doesn't serialize using torch.load, simply provides files as numpy format.
     """
     if os.getenv("TORCH_MODEL_ZOO"):
@@ -188,8 +150,3 @@ def load_params_from_url(url, param_dir=None, progress=True):
         hash_prefix = hub.HASH_REGEX.search(filename).group(1)
         hub._download_url_to_file(url, cached_file, hash_prefix, progress=progress)
     return np.load(cached_file)
-
-
-if __name__ == "__main__":
-    model = vggish()
-    print(model)

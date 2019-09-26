@@ -2,16 +2,4 @@
 
 .ipynb_checkpoints
 __pycache__
-
-audioset
-mel_features.py
-vggish*.pth
-vggish_inference_demo.py
-vggish_input.py
-vggish_model.ckpt
-vggish_pca_params.npz
-vggish_postprocess.py
-vggish_slim.py
-vggish_smoke_test.py
-vggish_train_demo.py
-vggish_params.py
+.env/*
