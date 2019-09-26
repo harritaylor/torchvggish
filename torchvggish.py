@@ -8,10 +8,8 @@ import warnings
 import errno
 from urllib.parse import urlparse
 
-# TODO: Upload weights and PCA to project release
-
-VGGISH_WEIGHTS = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish-10086976.pth"
-PCA_PARAMS = "https://users.cs.cf.ac.uk/taylorh23/pytorch/models/vggish_pca_params-4d878af3.npz"
+VGGISH_WEIGHTS = "https://github.com/harritaylor/torchvggish/releases/download/v0.1/vggish-10086976.pth"
+PCA_PARAMS = "https://github.com/harritaylor/torchvggish/releases/download/v0.1/vggish_pca_params-4d878af3.npz"
 
 
 class VGG(nn.Module):
