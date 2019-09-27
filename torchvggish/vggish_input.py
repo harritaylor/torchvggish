@@ -15,6 +15,9 @@
 
 """Compute input examples for VGGish from audio waveform."""
 
+# Modification: Return torch tensors rather than numpy arrays
+import torch
+
 import numpy as np
 import resampy
 
@@ -24,7 +27,7 @@ from . import vggish_params
 import soundfile as sf
 
 
-def waveform_to_examples(data, sample_rate):
+def waveform_to_examples(data, sample_rate, return_tensor=True):
     """Converts audio waveform into an array of examples for VGGish.
 
   Args:
@@ -33,12 +36,14 @@ def waveform_to_examples(data, sample_rate):
       Each sample is generally expected to lie in the range [-1.0, +1.0],
       although this is not required.
     sample_rate: Sample rate of data.
+    return_tensor: Return data as a Pytorch tensor ready for VGGish
 
   Returns:
     3-D np.array of shape [num_examples, num_frames, num_bands] which represents
     a sequence of examples, each of which contains a patch of log mel
     spectrogram, covering num_frames frames of audio and num_bands mel frequency
     bands, where the frame length is vggish_params.STFT_HOP_LENGTH_SECONDS.
+
   """
     # Convert to mono.
     if len(data.shape) > 1:
@@ -68,15 +73,21 @@ def waveform_to_examples(data, sample_rate):
         log_mel,
         window_length=example_window_length,
         hop_length=example_hop_length)
+
+    if return_tensor:
+        log_mel_examples = torch.tensor(
+            log_mel_examples, requires_grad=True)[:, None, :, :].float()
+
     return log_mel_examples
 
 
-def wavfile_to_examples(wav_file):
+def wavfile_to_examples(wav_file, return_tensor=True):
     """Convenience wrapper around waveform_to_examples() for a common WAV format.
 
   Args:
     wav_file: String path to a file, or a file-like object. The file
     is assumed to contain WAV audio data with signed 16-bit PCM samples.
+    torch: Return data as a Pytorch tensor ready for VGGish
 
   Returns:
     See waveform_to_examples.
@@ -84,4 +95,4 @@ def wavfile_to_examples(wav_file):
     wav_data, sr = sf.read(wav_file, dtype='int16')
     assert wav_data.dtype == np.int16, 'Bad sample type: %r' % wav_data.dtype
     samples = wav_data / 32768.0  # Convert to [-1.0, +1.0]
-    return waveform_to_examples(samples, sr)
+    return waveform_to_examples(samples, sr, return_tensor)
