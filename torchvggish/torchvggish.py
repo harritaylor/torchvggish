@@ -39,7 +39,7 @@ class VGG(nn.Module):
         return x
 
 
-class Postprocessor(object):
+class Postprocessor(nn.Module):
     """Post-processes VGGish embeddings. Returns a torch.Tensor instead of a
     numpy array in order to preserve the gradient.
 
@@ -54,9 +54,12 @@ class Postprocessor(object):
 
     def __init__(self):
         """Constructs a postprocessor."""
+        super(Postprocessor, self).__init__()
         params = hub.load_state_dict_from_url(PCA_PARAMS)
-        self._pca_matrix = torch.as_tensor(params["pca_eigen_vectors"]).float()
-        self._pca_means = torch.as_tensor(params["pca_means"].reshape(-1, 1)).float()
+        self.pca_matrix = torch.as_tensor(params["pca_eigen_vectors"]).float()
+        self.pca_means = torch.as_tensor(params["pca_means"].reshape(-1, 1)).float()
+        self.pca_matrix = nn.Parameter(self.pca_matrix)
+        self.pca_means = nn.Parameter(self.pca_means)
 
     def postprocess(self, embeddings_batch):
         """Applies tensor postprocessing to a batch of embeddings.
@@ -70,13 +73,16 @@ class Postprocessor(object):
           quantized, and clipped version of the input.
         """
         pca_applied = torch.mm(
-            self._pca_matrix, (embeddings_batch.t() - self._pca_means)
+            self.pca_matrix, (embeddings_batch.t() - self.pca_means)
         ).t()
         clipped_embeddings = torch.clamp(pca_applied, -2.0, +2.0)
         quantized_embeddings = torch.round(
             (clipped_embeddings - -2.0) * (255.0 / (+2.0 - -2.0))
         )
         return torch.squeeze(quantized_embeddings)
+
+    def forward(self, x):
+        return self.postprocess(x)
 
 
 def make_layers():
@@ -104,5 +110,5 @@ def vggish(postprocess=True):
     """
     model = _vgg(postprocess)
     state_dict = hub.load_state_dict_from_url(VGGISH_WEIGHTS, progress=True)
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict, strict=False)
     return model
