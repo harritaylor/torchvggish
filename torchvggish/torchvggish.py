@@ -4,10 +4,14 @@ from torch import hub
 
 from . import vggish_params
 
-VGGISH_WEIGHTS = "https://github.com/harritaylor/torchvggish/" \
-                 "releases/download/v0.1/vggish-10086976.pth"
-PCA_PARAMS = "https://github.com/harritaylor/torchvggish/" \
-             "releases/download/v0.1/vggish_pca_params-970ea276.pth"
+VGGISH_WEIGHTS = (
+    "https://github.com/harritaylor/torchvggish/"
+    "releases/download/v0.1/vggish-10086976.pth"
+)
+PCA_PARAMS = (
+    "https://github.com/harritaylor/torchvggish/"
+    "releases/download/v0.1/vggish_pca_params-970ea276.pth"
+)
 
 
 class VGG(nn.Module):
@@ -54,19 +58,26 @@ class Postprocessor(nn.Module):
         """Constructs a postprocessor."""
         super(Postprocessor, self).__init__()
         if pretrained:
-            self.init_params_pth_url(PCA_PARAMS, progress=progress)  
+            self.init_params_pth_url(PCA_PARAMS, progress=progress)
 
     def init_params_pth_url(self, pca_params_dict_url, progress=True):
         params = hub.load_state_dict_from_url(pca_params_dict_url, progress=progress)
-        self.pca_matrix = torch.as_tensor(params[vggish_params.PCA_EIGEN_VECTORS_NAME]).float()
-        self.pca_means = torch.as_tensor(params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1)).float()
+        self.pca_matrix = torch.as_tensor(
+            params[vggish_params.PCA_EIGEN_VECTORS_NAME]
+        ).float()
+        self.pca_means = torch.as_tensor(
+            params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1)
+        ).float()
         self.pca_matrix = nn.Parameter(self.pca_matrix, requires_grad=False)
         self.pca_means = nn.Parameter(self.pca_means, requires_grad=False)
         assert self.pca_matrix.shape == (
-            vggish_params.EMBEDDING_SIZE, vggish_params.EMBEDDING_SIZE), (
-                'Bad PCA matrix shape: %r' % (self.pca_matrix.shape,))
-        assert self.pca_means.shape == (vggish_params.EMBEDDING_SIZE, 1), (
-            'Bad PCA means shape: %r' % (self.pca_means.shape,))
+            vggish_params.EMBEDDING_SIZE,
+            vggish_params.EMBEDDING_SIZE,
+        ), "Bad PCA matrix shape: %r" % (self.pca_matrix.shape,)
+        assert self.pca_means.shape == (
+            vggish_params.EMBEDDING_SIZE,
+            1,
+        ), "Bad PCA means shape: %r" % (self.pca_means.shape,)
 
     def postprocess(self, embeddings_batch):
         """Applies tensor postprocessing to a batch of embeddings.
@@ -79,11 +90,12 @@ class Postprocessor(nn.Module):
           A tensor of the same shape as the input, containing the PCA-transformed,
           quantized, and clipped version of the input.
         """
-        assert len(embeddings_batch.shape) == 2, (
-            'Expected 2-d batch, got %r' % (embeddings_batch.shape,))
-        assert embeddings_batch.shape[1] == vggish_params.EMBEDDING_SIZE, (
-            'Bad batch shape: %r' % (embeddings_batch.shape,))
-
+        assert len(embeddings_batch.shape) == 2, "Expected 2-d batch, got %r" % (
+            embeddings_batch.shape,
+        )
+        assert (
+            embeddings_batch.shape[1] == vggish_params.EMBEDDING_SIZE
+        ), "Bad batch shape: %r" % (embeddings_batch.shape,)
 
         # Apply PCA.
         # - Embeddings come in as [batch_size, embedding_size].
@@ -92,16 +104,20 @@ class Postprocessor(nn.Module):
         # - Premultiply by PCA matrix of shape [output_dims, input_dims]
         #   where both are are equal to embedding_size in our case.
         # - Transpose result back to [batch_size, embedding_size].
-        pca_applied = torch.mm(
-            self.pca_matrix, (embeddings_batch.T - self.pca_means)
-        ).T
+        pca_applied = torch.mm(self.pca_matrix, (embeddings_batch.T - self.pca_means)).T
 
         # Quantize by:
         # - clipping to [min, max] range
-        clipped_embeddings = torch.clamp(pca_applied, vggish_params.QUANTIZE_MIN_VAL, vggish_params.QUANTIZE_MAX_VAL)
+        clipped_embeddings = torch.clamp(
+            pca_applied, vggish_params.QUANTIZE_MIN_VAL, vggish_params.QUANTIZE_MAX_VAL
+        )
         # - convert to 8-bit in range [0.0, 255.0]
         quantized_embeddings = torch.round(
-            (clipped_embeddings - vggish_params.QUANTIZE_MIN_VAL) * (255.0 / (vggish_params.QUANTIZE_MAX_VAL - vggish_params.QUANTIZE_MIN_VAL))
+            (clipped_embeddings - vggish_params.QUANTIZE_MIN_VAL)
+            * (
+                255.0
+                / (vggish_params.QUANTIZE_MAX_VAL - vggish_params.QUANTIZE_MIN_VAL)
+            )
         )
         return torch.squeeze(quantized_embeddings)
 
@@ -121,8 +137,10 @@ def make_layers():
             in_channels = v
     return nn.Sequential(*layers)
 
+
 def _vgg():
     return VGG(make_layers())
+
 
 def vggish(postprocess=True, pretrained=True, progress=True):
     """
