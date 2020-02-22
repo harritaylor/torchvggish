@@ -59,17 +59,28 @@ class Postprocessor(nn.Module):
         super(Postprocessor, self).__init__()
         if pretrained:
             self.init_params_pth_url(PCA_PARAMS, progress=progress)
+        else:
+            # Create empty matrix, for user's state_dict to load
+            self.pca_matrix = torch.empty(
+                (vggish_params.EMBEDDING_SIZE, vggish_params.EMBEDDING_SIZE,),
+                dtype=torch.float,
+            )
+            self.pca_means = torch.empty(
+                (vggish_params.EMBEDDING_SIZE, 1), dtype=torch.float
+            )
+
+        self.pca_matrix = nn.Parameter(self.pca_matrix, requires_grad=False)
+        self.pca_means = nn.Parameter(self.pca_means, requires_grad=False)
 
     def init_params_pth_url(self, pca_params_dict_url, progress=True):
         params = hub.load_state_dict_from_url(pca_params_dict_url, progress=progress)
         self.pca_matrix = torch.as_tensor(
-            params[vggish_params.PCA_EIGEN_VECTORS_NAME]
-        ).float()
+            params[vggish_params.PCA_EIGEN_VECTORS_NAME], dtype=torch.float
+        )
         self.pca_means = torch.as_tensor(
-            params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1)
-        ).float()
-        self.pca_matrix = nn.Parameter(self.pca_matrix, requires_grad=False)
-        self.pca_means = nn.Parameter(self.pca_means, requires_grad=False)
+            params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1), dtype=torch.float
+        )
+
         assert self.pca_matrix.shape == (
             vggish_params.EMBEDDING_SIZE,
             vggish_params.EMBEDDING_SIZE,
