@@ -1,17 +1,9 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import hub
 
-from . import vggish_params
-
-VGGISH_WEIGHTS = (
-    "https://github.com/harritaylor/torchvggish/"
-    "releases/download/v0.1/vggish-10086976.pth"
-)
-PCA_PARAMS = (
-    "https://github.com/harritaylor/torchvggish/"
-    "releases/download/v0.1/vggish_pca_params-970ea276.pth"
-)
+from . import vggish_input, vggish_params
 
 
 class VGG(nn.Module):
@@ -24,8 +16,7 @@ class VGG(nn.Module):
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Linear(4096, 128),
-            nn.ReLU(True),
-        )
+            nn.ReLU(True))
 
     def forward(self, x):
         x = self.features(x)
@@ -37,8 +28,7 @@ class VGG(nn.Module):
         x = x.contiguous()
         x = x.view(x.size(0), -1)
 
-        x = self.embeddings(x)
-        return x
+        return self.embeddings(x)
 
 
 class Postprocessor(nn.Module):
@@ -54,11 +44,11 @@ class Postprocessor(nn.Module):
     the same PCA (with whitening) and quantization transformations."
     """
 
-    def __init__(self, pretrained=True, progress=True):
+    def __init__(self, pretrained, params_url, progress=True):
         """Constructs a postprocessor."""
         super(Postprocessor, self).__init__()
         if pretrained:
-            self.init_params_pth_url(PCA_PARAMS, progress=progress)
+            self.init_params_pth_url(params_url, progress=progress)
         else:
             # Create empty matrix, for user's state_dict to load
             self.pca_matrix = torch.empty(
@@ -153,18 +143,51 @@ def _vgg():
     return VGG(make_layers())
 
 
-def vggish(postprocess=True, pretrained=True, progress=True):
-    """
-    VGGish is a PyTorch port of Tensorflow's VGGish architecture
-    used to create embeddings for Audioset. It produces a 128-d
-    embedding of a 96ms slice of audio.
-    """
-    model = _vgg()
-    if pretrained:
-        state_dict = hub.load_state_dict_from_url(VGGISH_WEIGHTS, progress=progress)
-        model.load_state_dict(state_dict)
+# def _spectrogram():
+#     config = dict(
+#         sr=16000,
+#         n_fft=400,
+#         n_mels=64,
+#         hop_length=160,
+#         window="hann",
+#         center=False,
+#         pad_mode="reflect",
+#         htk=True,
+#         fmin=125,
+#         fmax=7500,
+#         output_format='Magnitude',
+#         #             device=device,
+#     )
+#     return Spectrogram.MelSpectrogram(**config)
 
-    if postprocess:
-        model = nn.Sequential(model, Postprocessor(pretrained, progress))
 
-    return model
+class VGGish(VGG):
+    def __init__(self, urls, pretrained=True, preprocess=True, postprocess=True):
+        super().__init__(make_layers())
+        if pretrained:
+            state_dict = hub.load_state_dict_from_url(urls['vggish'], progress=True)
+            super().load_state_dict(state_dict)
+
+        self.preprocess = preprocess
+        self.postprocess = postprocess
+        self.pproc = Postprocessor(urls['pca'])
+
+    def forward(self, x, fs=None):
+        if self.preprocess:
+            x = self._preprocess(x, fs)
+        x = VGG.forward(self, x)
+        if self.postprocess:
+            x = self._postprocess(x)
+        return x
+
+    def _preprocess(self, x, fs):
+        if isinstance(x, np.ndarray):
+            x = vggish_input.waveform_to_examples(x, fs)
+        elif isinstance(x, str):
+            x = vggish_input.wavfile_to_examples(x)
+        else:
+            raise AttributeError
+        return x
+
+    def _postprocess(self, x):
+        return self.pproc.postprocess(x)
