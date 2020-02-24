@@ -3,13 +3,6 @@ import torch.nn as nn
 from torch import hub
 import numpy as np
 from . import vggish_input
-# import vggish_input
-
-
-VGGISH_WEIGHTS = "https://github.com/harritaylor/torchvggish/" \
-                 "releases/download/v0.1/vggish-10086976.pth"
-PCA_PARAMS = "https://github.com/harritaylor/torchvggish/" \
-             "releases/download/v0.1/vggish_pca_params-970ea276.pth"
 
 
 class VGG(nn.Module):
@@ -142,8 +135,3 @@ class VGGish(VGG):
 
     def _postprocess(self, x):
         return self.pproc.postprocess(x)
-
-
-# if __name__ == "__main__":
-#     model = VGGish()
-#     model.forward("/some/path/to/test/wavfile")
