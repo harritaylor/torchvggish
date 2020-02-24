@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 from torch import hub
-from nnAudio import Spectrogram
 import numpy as np
-# from . import vggish_input
-# from torchvggish import vggish_input
-import vggish_input
+from . import vggish_input
+# import vggish_input
 
 
 VGGISH_WEIGHTS = "https://github.com/harritaylor/torchvggish/" \
@@ -52,9 +50,9 @@ class Postprocessor(object):
     the same PCA (with whitening) and quantization transformations."
     """
 
-    def __init__(self):
+    def __init__(self, params):
         """Constructs a postprocessor."""
-        params = hub.load_state_dict_from_url(PCA_PARAMS)
+        params = hub.load_state_dict_from_url(params)
         self._pca_matrix = torch.as_tensor(params["pca_eigen_vectors"]).float()
         self._pca_means = torch.as_tensor(params["pca_means"].reshape(-1, 1)).float()
 
@@ -115,15 +113,15 @@ def _vgg():
 
 
 class VGGish(VGG):
-    def __init__(self, trained=True, preprocess=True, postprocess=True):
+    def __init__(self, urls, trained=True, preprocess=True, postprocess=True):
         super().__init__(make_layers())
         if trained:
-            state_dict = hub.load_state_dict_from_url(VGGISH_WEIGHTS, progress=True)
+            state_dict = hub.load_state_dict_from_url(urls['vggish'], progress=True)
             super().load_state_dict(state_dict)
 
         self.preprocess = preprocess
         self.postprocess = postprocess
-        self.pproc = Postprocessor()
+        self.pproc = Postprocessor(urls['pca'])
 
     def forward(self, x, fs=None):
         if self.preprocess:
@@ -145,6 +143,7 @@ class VGGish(VGG):
     def _postprocess(self, x):
         return self.pproc.postprocess(x)
 
-if __name__ == "__main__":
-    model = VGGish()
-    model.forward("/some/path/to/test/wavfile")
+
+# if __name__ == "__main__":
+#     model = VGGish()
+#     model.forward("/some/path/to/test/wavfile")
