@@ -1,6 +1,12 @@
 import torch
 import torch.nn as nn
 from torch import hub
+from nnAudio import Spectrogram
+import numpy as np
+# from . import vggish_input
+# from torchvggish import vggish_input
+import vggish_input
+
 
 VGGISH_WEIGHTS = "https://github.com/harritaylor/torchvggish/" \
                  "releases/download/v0.1/vggish-10086976.pth"
@@ -9,9 +15,8 @@ PCA_PARAMS = "https://github.com/harritaylor/torchvggish/" \
 
 
 class VGG(nn.Module):
-    def __init__(self, features, postprocess):
+    def __init__(self, features):
         super(VGG, self).__init__()
-        self.postprocess = postprocess
         self.features = features
         self.embeddings = nn.Sequential(
             nn.Linear(512 * 4 * 6, 4096),
@@ -19,10 +24,7 @@ class VGG(nn.Module):
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Linear(4096, 128),
-            nn.ReLU(True),
-        )
-        if postprocess:
-            self.pproc = Postprocessor()
+            nn.ReLU(True))
 
     def forward(self, x):
         x = self.features(x)
@@ -34,9 +36,7 @@ class VGG(nn.Module):
         x = x.contiguous()
         x = x.view(x.size(0), -1)
 
-        x = self.embeddings(x)
-        x = self.pproc.postprocess(x) if self.postprocess else x
-        return x
+        return self.embeddings(x)
 
 
 class Postprocessor(object):
@@ -92,17 +92,59 @@ def make_layers():
     return nn.Sequential(*layers)
 
 
-def _vgg(postprocess=False):
-    return VGG(make_layers(), postprocess)
+def _vgg():
+    return VGG(make_layers())
 
 
-def vggish(postprocess=True):
-    """
-    VGGish is a PyTorch port of Tensorflow's VGGish architecture
-    used to create embeddings for Audioset. It produces a 128-d
-    embedding of a 96ms slice of audio.
-    """
-    model = _vgg(postprocess)
-    state_dict = hub.load_state_dict_from_url(VGGISH_WEIGHTS, progress=True)
-    model.load_state_dict(state_dict)
-    return model
+# def _spectrogram():
+#     config = dict(
+#         sr=16000,
+#         n_fft=400,
+#         n_mels=64,
+#         hop_length=160,
+#         window="hann",
+#         center=False,
+#         pad_mode="reflect",
+#         htk=True,
+#         fmin=125,
+#         fmax=7500,
+#         output_format='Magnitude',
+#         #             device=device,
+#     )
+#     return Spectrogram.MelSpectrogram(**config)
+
+
+class VGGish(VGG):
+    def __init__(self, trained=True, preprocess=True, postprocess=True):
+        super().__init__(make_layers())
+        if trained:
+            state_dict = hub.load_state_dict_from_url(VGGISH_WEIGHTS, progress=True)
+            super().load_state_dict(state_dict)
+
+        self.preprocess = preprocess
+        self.postprocess = postprocess
+        self.pproc = Postprocessor()
+
+    def forward(self, x, fs=None):
+        if self.preprocess:
+            x = self._preprocess(x, fs)
+        x = VGG.forward(self, x)
+        if self.postprocess:
+            x = self._postprocess(x)
+        return x
+
+    def _preprocess(self, x, fs):
+        if isinstance(x, np.ndarray):
+            x = vggish_input.waveform_to_examples(x, fs)
+        elif isinstance(x, str):
+            x = vggish_input.wavfile_to_examples(x)
+        else:
+            raise AttributeError
+        return x
+
+    def _postprocess(self, x):
+        return self.pproc.postprocess(x)
+
+if __name__ == "__main__":
+    model = VGGish()
+    model.forward("/some/path/to/test/wavfile")
