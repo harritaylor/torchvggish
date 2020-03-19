@@ -149,7 +149,7 @@ class VGGish(VGG):
 
         self.preprocess = preprocess
         self.postprocess = postprocess
-        if self.preprocess:
+        if self.postprocess:
             self.pproc = Postprocessor()
             if pretrained:
                 state_dict = hub.load_state_dict_from_url(urls['pca'], progress=progress)
