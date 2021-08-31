@@ -20,6 +20,13 @@ except: urllib.request.urlretrieve(url, filename)
 model.forward(filename)
 ```
 
+If you want to modify hyperparameters in `torchvggish.vggish_params`,
+add the following `install_requires` to your `setup.py`:
+```
+"torchvggish @ git+https://github.com/neuralaudio/torchvggish.git@setup.py#egg=torchvggish",
+```
+and then `import torchvggish.vggish_params` in your code.
+
 <hr>
 [1]  S. Hershey et al., ‘CNN Architectures for Large-Scale Audio Classification’,\
     in International Conference on Acoustics, Speech and Signal Processing (ICASSP),2017\
