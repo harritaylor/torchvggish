@@ -1,3 +1,8 @@
+**Looking for maintainers** - I no longer have the capacity to maintain this project. If you would like to take over maintenence, please get in touch. I will either forward to your fork, or add you as a maintainer for the project. Thanks.
+
+---
+
+
 # VGGish
 A `torch`-compatible port of [VGGish](https://github.com/tensorflow/models/tree/master/research/audioset)<sup>[1]</sup>, 
 a feature embedding frontend for audio classification models. The weights are ported directly from the tensorflow model, so embeddings created using `torchvggish` will be identical.
